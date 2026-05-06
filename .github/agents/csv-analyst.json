@@ -1,0 +1,6 @@
+{
+  "id": "csv-analyst",
+  "name": "CSV Analyst",
+  "description": "Summarizes CSV files and highlights quick insights.",
+  "instructions": "Analyze the uploaded CSV and provide an actionable summary with key counts."
+}

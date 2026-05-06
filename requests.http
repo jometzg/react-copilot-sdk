@@ -1,0 +1,174 @@
+### Backend API Test Suite
+### Base URL: http://localhost:3001
+
+### ============================================
+### 1. Health Check
+### ============================================
+
+### Check backend health
+GET http://localhost:3001/api/health
+
+###
+
+### ============================================
+### 2. Agent Management
+### ============================================
+
+### List all available agents
+GET http://localhost:3001/api/agents
+
+###
+
+### ============================================
+### 3. File Processing - CSV Analyst Agent
+### ============================================
+
+### Submit CSV for processing (CSV Analyst)
+POST http://localhost:3001/api/process
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="sample.csv"
+Content-Type: text/csv
+
+name,email,department,salary
+Alice Johnson,alice@company.com,Engineering,120000
+Bob Smith,bob@company.com,Sales,90000
+Charlie Brown,charlie@company.com,Engineering,125000
+Diana Prince,diana@company.com,HR,85000
+Edward Norton,edward@company.com,Sales,95000
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="agentId"
+
+csv-analyst
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+###
+
+### ============================================
+### 3b. File Processing - Data Quality Auditor
+### ============================================
+
+### Submit CSV for processing (Data Quality Auditor)
+# @name startProcess
+POST http://localhost:3001/api/process
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="sales-data.csv"
+Content-Type: text/csv
+
+product,quantity,price,date
+Widget A,100,29.99,2024-01-01
+Widget B,50,,2024-01-02
+Widget C,75,19.99,2024-01-03
+Widget A,100,29.99,2024-01-04
+Widget D,25,49.99,
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="agentId"
+
+data-quality-auditor
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+###
+
+### ============================================
+### 4. Session Management
+### ============================================
+
+### Get session status (replace {SESSION_ID} with actual ID from POST response)
+# @name getSessionStatus
+GET http://localhost:3001/api/process/{{startProcess.response.body.sessionId}}
+
+###
+
+### List output files for a session
+# @name listOutputFiles
+GET http://localhost:3001/api/process/{{startProcess.response.body.sessionId}}/files
+
+###
+
+### Download a generated file (replace {FILE_ID} with actual ID)
+# @name downloadFile
+GET http://localhost:3001/api/process/{{startProcess.response.body.sessionId}}/files/{{listOutputFiles.response.body.files[0].fileId}}/download
+
+###
+
+### ============================================
+### 5. Error Cases
+### ============================================
+
+### Missing required file
+POST http://localhost:3001/api/process
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="agentId"
+
+csv-analyst
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+###
+
+### Wrong file type (not CSV)
+POST http://localhost:3001/api/process
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="data.txt"
+Content-Type: text/plain
+
+This is not a CSV file
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="agentId"
+
+csv-analyst
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+###
+
+### Invalid agent ID
+POST http://localhost:3001/api/process
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="sample.csv"
+Content-Type: text/csv
+
+name,email
+Alice,alice@company.com
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="agentId"
+
+nonexistent-agent
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+###
+
+### Nonexistent session
+GET http://localhost:3001/api/process/invalid-session-id
+
+###
+
+### ============================================
+### USAGE INSTRUCTIONS
+### ============================================
+###
+### To use this file with VS Code:
+### 1. Install "REST Client" extension (humao.rest-client)
+### 2. Open this file (requests.http)
+### 3. Click "Send Request" above any request to execute it
+###
+### Tips:
+### - Copy SESSION_ID from POST /api/process response to test GET requests
+### - Copy FILE_ID from GET /api/process/{SESSION_ID}/files response
+### - Use the mock agent (default) or set USE_COPILOT_SDK=true for real SDK
+### - SSE streaming is not directly testable here; use browser DevTools or curl
+###
+### Example workflow:
+### 1. POST /api/process to create a session and get {SESSION_ID}
+### 2. Replace {SESSION_ID} in GET requests
+### 3. GET /api/process/{SESSION_ID} to check status
+### 4. GET /api/process/{SESSION_ID}/files to list outputs
+### 5. GET /api/process/{SESSION_ID}/files/{FILE_ID}/download to retrieve file
+###

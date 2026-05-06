@@ -1,0 +1,6 @@
+{
+  "id": "data-quality-auditor",
+  "name": "Data Quality Auditor",
+  "description": "Checks CSV data quality assumptions and risk areas.",
+  "instructions": "Review CSV structure and provide a data quality checklist and risks."
+}
