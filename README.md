@@ -6,6 +6,14 @@ A web application that integrates GitHub Copilot SDK with custom agent support, 
 
 This project provides a React-based interface for running AI agents against uploaded files (currently CSV). Agents are loaded from `.github/agents/` and can perform custom analysis or transformations. Responses stream in real-time, and generated artifacts are available for download.
 
+⚠️ **Important:** Agents in this application are **not identical to VS Code agents**. This is a deployment and automation layer, not a development environment. Key differences:
+- **No skills auto-discovery** — Skills must be manually defined and wired into the backend
+- **No interactive refinement** — Agent runs once and returns results (no multi-turn conversation)
+- **No live IDE context** — Agent sees only uploaded file + instructions, not codebase context
+- **Requires deterministic behavior** — Agent should work reliably without human intervention
+
+🎯 **Recommended use case:** Deploy agents that have been **proven effective in VS Code** and require **minimal human guidance** to complete their task.
+
 **Architecture:**
 - **Frontend**: React 18 + TypeScript (Vite 5)
 - **Backend**: Express 5 + TypeScript + Server-Sent Events (SSE) streaming
@@ -66,11 +74,40 @@ This project provides a React-based interface for running AI agents against uplo
 | Capability | React Copilot | VS Code Copilot Chat |
 |---|---|---|
 | Context awareness | ⚠️ Limited (single file/upload) | ✅ Full workspace context |
-| Multi-turn conversation | ⚠️ Single request/response | ✅ Full conversation history |
+| Multi-turn conversation | ❌ Single request/response | ✅ Full conversation history |
 | Inline code actions | ❌ No | ✅ Yes (refactor, fix, etc.) |
 | Symbol awareness | ❌ No | ✅ Understands codebase structure |
 | Documentation integration | ❌ No | ✅ Integrated docs lookup |
 | Quick-fix suggestions | ❌ No | ✅ Integrated quick fixes |
+| Tool/Skill Discovery | ❌ Manual only | ✅ Automatic detection |
+
+### When Agents Are Identical
+
+Agents work the same in both environments if they:
+- ✅ Use only instruction-based reasoning (no tools/skills)
+- ✅ Produce deterministic output from input
+- ✅ Don't require clarification or refinement
+
+Example: "Summarize this CSV" → works identically in both.
+
+Agents **differ significantly** when they:
+- ❌ Call external tools/skills (different APIs in each environment)
+- ❌ Require multi-turn refinement
+- ❌ Need full workspace/codebase context
+
+### Agent Skill Implications
+
+**VS Code environment:**
+- Agent auto-discovers available tools (extensions, CLI, APIs)
+- Calls skills naturally through SDK
+- Can iterate if results unsatisfactory
+
+**React Copilot environment:**
+- **NO auto-discovery** — you must define which skills exist
+- **NO implicit tool calling** — skills must be explicitly wired
+- **Single execution** — agent runs once, returns result
+
+This means agents with external dependencies need **significant refactoring** to work here.
 
 ### **Functional Limitations**
 - **File access**: Upload files manually (no workspace browsing)
@@ -101,9 +138,12 @@ Then:
 - **Frontend**: http://localhost:5175
 - **Backend API**: http://localhost:3001
 
-### Create a Custom Agent
+## Custom Agents
 
-1. Create `.github/agents/my-agent.json`:
+### Agent Basics
+
+Agents are simple JSON files in `.github/agents/`:
+
 ```json
 {
   "id": "my-agent",
@@ -113,9 +153,98 @@ Then:
 }
 ```
 
-2. Restart backend—agent appears in dropdown automatically
+### Agent Limitations
 
-3. Upload CSV and run agent
+Unlike VS Code agents, agents in this app have **limited capabilities**:
+
+| Capability | VS Code Agent | React Copilot Agent |
+|---|---|---|
+| Skills discovery | ✅ Auto-discovers available tools | ❌ Manual configuration required |
+| Interactive refinement | ✅ Multi-turn conversation, clarification | ❌ Single request → response |
+| Tool calling | ✅ Built-in, intelligent tool selection | ⚠️ Must be programmed explicitly |
+| Context awareness | ✅ Full workspace, open files, git history | ❌ Upload file + instructions only |
+| Error recovery | ✅ Agent can ask for clarification | ❌ Returns error, no retry |
+| Learning | ✅ Adapts based on feedback | ❌ Stateless per run |
+
+### When to Deploy an Agent Here
+
+✅ **Good candidates:**
+- Agents tested extensively in VS Code and working reliably
+- Task has clear inputs and outputs (analysis → report)
+- Minimal human intervention needed (not iterative)
+- Deterministic behavior (same input → consistent output)
+- Example: "Analyze CSV for data quality issues" → structured report
+
+❌ **Poor candidates:**
+- Agents requiring user feedback or clarification
+- Complex multi-step workflows needing human judgment
+- Exploratory tasks ("help me understand this codebase")
+- Agents requiring live IDE context
+- Tasks that benefit from conversation
+
+### Implementing Skills Programmatically
+
+If your agent needs to call external services (database, API, file system), you must wire them manually:
+
+```typescript
+// backend/src/services/agentSkills.ts
+export const agentSkills = {
+  queryDatabase: async (sql: string) => {
+    // Your database logic here
+    return results;
+  },
+  
+  callExternalApi: async (url: string) => {
+    // Your API call logic
+    return data;
+  },
+  
+  analyzeFile: async (path: string) => {
+    // Your file analysis logic
+    return analysis;
+  },
+};
+```
+
+Then pass skills to agent in `copilotService.ts`:
+
+```typescript
+const result = await runCopilotAgent(agent, csvText, agentSkills);
+```
+
+This is **different from VS Code**, where agents auto-discover available tools. Here, you explicitly define what agents can do.
+
+### Creating a New Agent
+
+**Step 1:** Test thoroughly in VS Code
+```
+✅ Agent runs reliably
+✅ Produces correct output format
+✅ Handles edge cases
+✅ Requires minimal user guidance
+```
+
+**Step 2:** Create `.github/agents/my-agent.json`
+```json
+{
+  "id": "my-agent",
+  "name": "My Agent",
+  "description": "Brief description",
+  "instructions": "Detailed instructions. Include output format expectations."
+}
+```
+
+**Step 3:** If agent needs skills:
+- Add functions to `backend/src/services/agentSkills.ts`
+- Update `runCopilotAgent()` to accept and use skills
+- Test via REST API (see `requests.http`)
+
+**Step 4:** Restart backend
+```bash
+npm run build -w backend  # Rebuilds if changes made
+```
+
+Agent appears in dropdown automatically.
 
 ### Using the REST API
 
